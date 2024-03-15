@@ -1,6 +1,7 @@
 #ifndef UKF_H
 #define UKF_H
 
+#include <iostream>
 #include "Eigen/Dense"
 #include "measurement_package.h"
 
@@ -41,6 +42,10 @@ class UKF {
    */
   void UpdateRadar(MeasurementPackage meas_package);
 
+  void generateAugmentedSigmaPoints(Eigen::MatrixXd& X_aug);
+  void sigmaPointPrediction(Eigen::MatrixXd& Xsig_aug, double dt);
+  void predictMeanAndCovariance();
+  void updateStateFromRadar(MeasurementPackage meas_package);
 
   // initially set to false, set to true in first call of ProcessMeasurement
   bool is_initialized_;
@@ -51,14 +56,28 @@ class UKF {
   // if this is false, radar measurements will be ignored (except for init)
   bool use_radar_;
 
-  // state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
+  // final estimated state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
   Eigen::VectorXd x_;
 
-  // state covariance matrix
+  // final estimated state covariance matrix
   Eigen::MatrixXd P_;
 
-  // predicted sigma points matrix
+  // predicted sigma points matrix from motion update
   Eigen::MatrixXd Xsig_pred_;
+
+  // predicted state vector from sigma points: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
+  Eigen::VectorXd x_pred_;
+
+  // predicted state covariance matrix from sigma points
+  Eigen::MatrixXd P_pred_;
+
+  // predicted sigma points matrix from measurement update
+  Eigen::MatrixXd Zsig_pred_;
+
+  Eigen::MatrixXd S_pred_;
+
+  // predicted measurement vector from sigma points: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
+  Eigen::VectorXd z_pred_;
 
   // time when the state is true, in us
   long long time_us_;
@@ -87,14 +106,17 @@ class UKF {
   // Weights of sigma points
   Eigen::VectorXd weights_;
 
-  // State dimension
-  int n_x_;
+  int n_x_;         // State dimension
+  int n_aug_;       // Augmented state dimension
+  int n_zr_;        // number of radar measurements
+  int n_zl_;        // number of lidar measurements
+  double lambda_;   // Sigma point spreading parameter
 
-  // Augmented state dimension
-  int n_aug_;
+  Eigen::MatrixXd Rr;   // radar measurement noise covariance matrix
+  Eigen::MatrixXd Rl;   // lidar measurement noise covariance matrix
+  Eigen::MatrixXd H;    // linear H matrix to transform predicted state to lidar measurement space
 
-  // Sigma point spreading parameter
-  double lambda_;
+  long previous_timestamp_;
 };
 
 #endif  // UKF_H
