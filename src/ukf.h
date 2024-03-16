@@ -2,6 +2,7 @@
 #define UKF_H
 
 #include <iostream>
+#include <pcl/visualization/pcl_plotter.h>
 #include "Eigen/Dense"
 #include "measurement_package.h"
 
@@ -45,7 +46,8 @@ class UKF {
   void generateAugmentedSigmaPoints(Eigen::MatrixXd& X_aug);
   void sigmaPointPrediction(Eigen::MatrixXd& Xsig_aug, double dt);
   void predictMeanAndCovariance();
-  void updateStateFromRadar(MeasurementPackage meas_package);
+  void plotLidarNIS();
+  void plotRadarNIS();
 
   // initially set to false, set to true in first call of ProcessMeasurement
   bool is_initialized_;
@@ -55,6 +57,8 @@ class UKF {
 
   // if this is false, radar measurements will be ignored (except for init)
   bool use_radar_;
+
+  bool plot_nis;    // if true, NIS values will be plot along with their thresholds for both lidar and radar measurements
 
   // final estimated state vector: [pos1 pos2 vel_abs yaw_angle yaw_rate] in SI units and rad
   Eigen::VectorXd x_;
@@ -117,6 +121,14 @@ class UKF {
   Eigen::MatrixXd H;    // linear H matrix to transform predicted state to lidar measurement space
 
   long previous_timestamp_;
+
+  double nis_radar_threshold = 7.815;     // 0.05 p value threshold for 3 degrees of freedom. i.e only 5% of predicted radar measurements are allowed above this threshold
+  double nis_lidar_threshold = 5.991;     // 0.05 p value threshold for 2 degrees of freedom. i.e only 5% of predicted lidar measurements are allowed above this threshold
+
+  std::vector<double> nis_lidar_values;
+  std::vector<double> nis_radar_values;
+
+  pcl::visualization::PCLPlotter* nis_plotter;
 };
 
 #endif  // UKF_H
