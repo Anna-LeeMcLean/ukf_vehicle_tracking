@@ -12,4 +12,4 @@ Track the states of multiple vehicles on a highway using an Unscented Kalman Fil
     Mac: same deal as make - install Xcode command line tools
     Windows: recommend using MinGW
 * PCL 1.2
-* C++ 20
+* C++ 14
