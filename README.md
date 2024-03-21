@@ -7,31 +7,34 @@ Estimate and track the states of three (3) vehicles on a highway using an Unscen
 
 The green car is the ego car while the blue cars are the traffic cars being tracked. The pink arrows show the estimated position of the traffic cars at every timestep while the green arrows indicate the estimated direction of velocity.
 
-## Motion and Measurment Model Characterization
-The UKF estimates five (5) states for each vehicle - posixition in x and y, radial velocity, turning angle and angular velocity. The motion/process update step uses a Constant Turn Rate and Velocity (CTRV) model where the radial and angular velocities are assumed to remain constant throughout time. It also includes an estimated process noise which accounts for any changes in linear and angular acceleration that might occur which obviously are not considered in the motion model due to the constant velocity assumptions. The measurement update step alternates between using lidar and radar data at each time step to create a posterior estimate for each of the 5 states. The final estimate incorporates the kalman gain to bias either the estimate from the motion model or the measurement model as with all kalman filter implementations. The Unscented version of the kalman filter is used to handle the non-linear motion model and process noise functions. The lidar measurments provide position in the x and y, implying that the mapping from the lidar measurement space to the state space is linear since we can directly map these measurements to their corresponding states in the state vector. On the other hand, the radar measurements provide euclidean distance to the traffic vehicle, angle between direction of motion and tracffic vehicle and finally radial velocity of the traffice vehicle. The mapping between this measurement space and the state space is non-linear so the UKF also provides a means to handle the radar's measurement model.
+## Motion and Measurement Model Characterization
+The UKF estimates five (5) states for each vehicle - posixition in x and y, radial velocity, turning angle and angular velocity. The motion/process update step uses a Constant Turn Rate and Velocity (CTRV) model where the radial and angular velocities are assumed to remain constant throughout time. It also includes an estimated process noise which accounts for any changes in linear and angular acceleration that might occur which obviously are not considered in the motion model due to the constant velocity assumptions. The measurement update step alternates between using lidar and radar data at each time step to create a posterior estimate for each of the 5 states. The final estimate incorporates the kalman gain to bias either the estimate from the motion model or the measurement model as with all kalman filter implementations. The Unscented version of the kalman filter is used to handle the non-linear motion model and process noise functions shown in Figure 1. 
 
 ![image](https://github.com/Anna-LeeMcLean/ukf_vehicle_tracking/assets/60242931/f802124c-a6d7-4214-9e6a-1570a3dd34fb)
 
 *Figure 1 showing state vector (x) and non-linear motion models when angualar velocity (psi dot) is zero and non-zero*
+
+The lidar measurments provide position in x and y, implying that the mapping from the lidar measurement space to the state space is linear since we can directly map these measurements to their corresponding states in the state vector. On the other hand, the radar measurements provide euclidean distance to the traffic vehicle, angle between direction of motion and traffic vehicle and finally radial velocity of the traffic vehicle. The mapping between this measurement space and the state space is non-linear so the UKF also provides a means to handle the radar's measurement model.
 
 ![image](https://github.com/Anna-LeeMcLean/ukf_vehicle_tracking/assets/60242931/dde5719f-a7eb-4052-81c4-9aff13d09f9f)
 
 *Figure 2 showing **radar** measurement model and its non-linear functions*
 
 ## UKF Parameters and Implementation
-The UKF approximates the non-linear distribution of every state by creating sigma points which spread evenly across the distribution while considering process noise and uncertainity. The sigma points are then ran through the motion model so that a mean estimate and updated process covariance matrix can be extracted from the processed sigma points. The number of sigma points used was determined by the following equation which is standard in UKF implementation: *ns = 2nx + 1*; where *ns* is the number of sigma points and *nx* is the number of states being estimated. The UKF design parameter *lambda*, which works to approximate the magnitude of each state's variance, was calculated as: *lambda = 3 - nx*. This equation is also standard in UKF implementation. The equation used to generate all sigma points for each state is given below where *Xk* is the sigma point matrix and *Pk* is the initial process covariance matrix.
+The UKF approximates the non-linear distribution of every state by creating sigma points which spread evenly across the distribution while considering process noise and uncertainity. The sigma points are then ran through the motion model so that a mean state estimate and updated process covariance matrix can be extracted from the processed sigma points. The number of sigma points used was determined by the following equation which is standard in UKF implementation: *ns = 2nx + 1*; where *ns* is the number of sigma points and *nx* is the number of states being estimated. The UKF design parameter *lambda*, which works to approximate the magnitude of each state's variance, was calculated as: *lambda = 3 - nx*. This equation is also standard in UKF implementation. The equation used to generate all sigma points for each state is given below where *Xk* is the sigma point matrix and *Pk* is the initial process covariance matrix.
 
 ![image](https://github.com/Anna-LeeMcLean/ukf_vehicle_tracking/assets/60242931/a82b2283-e047-46ca-864a-bfbc2184ec1e)
 
 *Figure 3 showing generation of sigma point matrix of size (nx x ns)*
 
-In this implementation, the initial state vector and process covariance matrix were augmented to consider the process noise. The values for the noise variance in acceleration were estimated from assumptions about the maximum possible linear and angular accelerations a car could achieve; where standard deviation was estimated as (1/2)a with *a* being either max linear/angular acceleration. The Normalized Innovation Squared (NIS) threshold was used to tweak these values. More on this later.
+In this implementation, the initial state vector and process covariance matrix were augmented to consider the process noise. The values for the noise variance in acceleration were estimated from assumptions about the maximum possible linear and angular accelerations a car could achieve; where standard deviation was estimated as half of the maximum linear/angular acceleration. The Normalized Innovation Squared (NIS) threshold was used to tweak these values. More on this later.
 
 ### Estimating State using Motion Model
 The following equations were used to extract the predicted mean and updated process covariance from the processed sigma points:
 
 ![image](https://github.com/Anna-LeeMcLean/ukf_vehicle_tracking/assets/60242931/4c4f1bf7-0e29-49fb-acf8-4ceb4f9681a4)
-*Figure 4 showing equations for calculation of prior state and covariance beliefs*
+
+*Figure 4 showing equations for calculation of prior state mean and covariance beliefs*
 
 The predicted mean is simply a weighted sum of all the processed sigma points. The predicted covariance is the sum of weighted, squared differences between every processed sigma point and the inital state belief to produce a square matrix with size equal to the number of states. The weights are required in these equations to undo the scaling of covariance done by the lambda term in Figure 3.
 
@@ -46,7 +49,7 @@ The posterior state belief is determined in a similar fashion when incorporating
 For LiDAR measurements, the original kalman filter measurement update step is used since its measurement model is linear.
 
 ### Final UKF State Estimate
-We've talked about predicting a prior belief and its covariance using a non-linear motion model then predicting a measurement mean using the prior belief. The error between the measurement mean and the actual measurement is used to calculate the final state belief. This error is scaled by the Kalman gain as shown in the update state equation in Figure 6. The equations used are shown below:
+We've talked about predicting a prior belief and its covariance using a non-linear motion model then predicting a measurement mean using the prior belief. The error between the measurement mean and the actual measurement is used to calculate the final state belief. This error is scaled by the Kalman gain as shown in the update state equation in Figure 6.
 
 ![image](https://github.com/Anna-LeeMcLean/ukf_vehicle_tracking/assets/60242931/34c5f20e-10c2-4a5a-b3de-fccc6131caed)
 
